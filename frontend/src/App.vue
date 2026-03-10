@@ -12,6 +12,7 @@ const tempCurrency = ref('usd')
 
 const exchangeRateEur = ref(0.92) 
 let refreshInterval = null;
+let quoteRefreshInterval = null;
 
 // --- Modal State für Löschen ---
 const stockToDelete = ref(null)
@@ -81,7 +82,7 @@ watch(globalUserId, () => {
     refreshInterval = setInterval(() => { 
       loadSubscriptions()
       getAlerts()
-    }, 60000)
+    }, 10000)
   }
 })
 
@@ -91,19 +92,32 @@ watch(globalCurrency, () => {
   }
 })
 
-onUnmounted(() => { if (refreshInterval) clearInterval(refreshInterval) })
+onUnmounted(() => {
+  if (refreshInterval) clearInterval(refreshInterval)
+  if (quoteRefreshInterval) clearInterval(quoteRefreshInterval)
+})
 
 const quoteQuery = ref('')
 const quoteResult = ref(null)
 
 const getQuote = async () => {
   quoteResult.value = null;
+  if (quoteRefreshInterval) clearInterval(quoteRefreshInterval)
   if(!quoteQuery.value) return;
   try {
     const res = await fetch(`${API_BASE}/quote?query=${encodeURIComponent(quoteQuery.value)}`)
     const data = await res.json()
     if (data.error || data.NotFoundException) throw new Error("Aktie nicht gefunden")
     quoteResult.value = data
+    // Refresh live price every 10s while result is visible
+    quoteRefreshInterval = setInterval(async () => {
+      if (!quoteResult.value) { clearInterval(quoteRefreshInterval); return; }
+      try {
+        const r = await fetch(`${API_BASE}/quote?query=${encodeURIComponent(quoteResult.value.symbol)}`)
+        const d = await r.json()
+        if (d.priceUsd) quoteResult.value = d
+      } catch {}
+    }, 5000)
   } catch (err) { showMessage(err.message, 'error') }
 }
 
@@ -120,6 +134,7 @@ const subscribeFromQuote = async (symbol) => {
     showMessage(`${symbol.toUpperCase()} erfolgreich abonniert`, 'success')
     quoteQuery.value = ''
     quoteResult.value = null
+    if (quoteRefreshInterval) clearInterval(quoteRefreshInterval)
     await loadSubscriptions() 
   } catch (err) { showMessage(err.message, 'error') }
 }

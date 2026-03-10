@@ -9,6 +9,7 @@ import org.jboss.logging.Logger;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Path("/stock")
 @Produces(MediaType.APPLICATION_JSON)
@@ -17,13 +18,30 @@ public class StockResource {
     private static final Logger LOG = Logger.getLogger(StockResource.class);
     
     // Constant for fallback pricing when API limits are reached ($)
-    private static final double DUMMY_PRICE = 150.00; 
+    private static final double DUMMY_PRICE = 150.00;
+
+    // Demo prices
+    private static final Map<String, Double> DEMO_PRICES = new ConcurrentHashMap<>(Map.of(
+        "AAPL",  175.00,
+        "GOOGL", 140.00,
+        "AMZN",  185.00,
+        "TSLA",  250.00
+    ));
 
     @RestClient
     AlphaVantageClient client;
 
     @ConfigProperty(name="alphavantage.api-key")
     String apiKey;
+
+    /** Returns a demo price that fluctuates ±1% each call. */
+    private double getDemoPrice(String symbol) {
+        double current = DEMO_PRICES.getOrDefault(symbol, DUMMY_PRICE);
+        double change = 1 + (Math.random() * 0.02 - 0.01);
+        double updated = current * change;
+        DEMO_PRICES.put(symbol, updated);
+        return updated;
+    }
 
     /**
      * Fetches the current stock quote.
@@ -50,7 +68,7 @@ public class StockResource {
             // Check if API limit is exceeded
             if (json.containsKey("Note") || json.containsKey("Information")) {
                 LOG.warn("Alpha Vantage API Limit erreicht. Nutze Dummy-Kurs für " + symbol);
-                return new StockQuote(symbol, DUMMY_PRICE);
+                return new StockQuote(symbol, getDemoPrice(symbol));
             }
 
             Map<String, Object> globalQuote = (Map<String, Object>) json.get("Global Quote");
@@ -64,7 +82,7 @@ public class StockResource {
         } catch (Exception e) {
             LOG.error("Quote Fehler: " + e.getMessage());
             // Fallback for network timeouts
-            return new StockQuote(symbol, DUMMY_PRICE);
+            return new StockQuote(symbol, getDemoPrice(symbol));
         }
     }
 
