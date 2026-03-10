@@ -111,8 +111,12 @@ public class StockSubscriptionResource {
     @GET
     @Path("/quote")
     public Map<String, Object> quote(@QueryParam("query") String query) {
-        StockQuote quote = stock.quote(query);
-        return Map.of("symbol", query.toUpperCase(), "priceUsd", quote.priceUsd());
+        try {
+            StockQuote quote = stock.quote(query);
+            return Map.of("symbol", query.toUpperCase(), "priceUsd", quote.priceUsd());
+        } catch (Exception e) {
+            throw new NotFoundException("Aktie nicht gefunden: " + query);
+        }
     }
 
     @GET

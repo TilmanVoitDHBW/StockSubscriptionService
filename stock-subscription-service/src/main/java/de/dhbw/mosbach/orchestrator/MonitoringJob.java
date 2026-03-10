@@ -96,12 +96,11 @@ public class MonitoringJob {
         }
 
         if (breached) {
-            Map<String, Object> updatePayload = new HashMap<>();
-            updatePayload.put("upperThresholdUsd", currentUpper);
-            updatePayload.put("lowerThresholdUsd", currentLower);
-            updatePayload.put("currentPriceUsd", currentPrice);
-            
-            subscription.updateThresholds(userId, entry.symbol(), updatePayload);
+            Map<String, Object> resetPayload = new HashMap<>();
+            resetPayload.put("upperThresholdUsd", currentUpper);
+            resetPayload.put("lowerThresholdUsd", currentLower);
+
+            subscription.resetThresholds(userId, entry.symbol(), resetPayload);
         }
     }
 }

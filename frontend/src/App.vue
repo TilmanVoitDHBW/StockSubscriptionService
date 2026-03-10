@@ -3,7 +3,6 @@ import { ref, watch, computed, onUnmounted, onMounted } from 'vue'
 
 const API_BASE = 'http://localhost:8080'
 
-// --- Globale Variablen ---
 const globalUserId = ref('')
 const globalCurrency = ref('usd') 
 
@@ -14,7 +13,6 @@ const exchangeRateEur = ref(0.92)
 let refreshInterval = null;
 let quoteRefreshInterval = null;
 
-// --- Modal State für Löschen ---
 const stockToDelete = ref(null)
 
 onMounted(async () => {
@@ -82,7 +80,7 @@ watch(globalUserId, () => {
     refreshInterval = setInterval(() => { 
       loadSubscriptions()
       getAlerts()
-    }, 10000)
+    }, 15000)
   }
 })
 
@@ -109,7 +107,6 @@ const getQuote = async () => {
     const data = await res.json()
     if (data.error || data.NotFoundException) throw new Error("Aktie nicht gefunden")
     quoteResult.value = data
-    // Refresh live price every 10s while result is visible
     quoteRefreshInterval = setInterval(async () => {
       if (!quoteResult.value) { clearInterval(quoteRefreshInterval); return; }
       try {
@@ -183,40 +180,49 @@ const loadSubscriptions = async () => {
     const res = await fetch(`${API_BASE}/subscriptions/${globalUserId.value}`)
     const data = await res.json()
     
-    let entries = (data.entries || []).map(sub => {
-      const displayUpper = toDisplayValue(sub.upperThresholdUsd)
-      const displayLower = toDisplayValue(sub.lowerThresholdUsd)
-      const isActive = (sub.upperThresholdUsd != null || sub.lowerThresholdUsd != null)
+    let entries = (data.entries || []).map(newSub => {
+      const displayUpper = toDisplayValue(newSub.upperThresholdUsd)
+      const displayLower = toDisplayValue(newSub.lowerThresholdUsd)
+      const isActive = (newSub.upperThresholdUsd != null || newSub.lowerThresholdUsd != null)
+      
+      const existingSub = userSubscriptions.value.find(s => s.symbol === newSub.symbol)
+      
+      if (existingSub && existingSub.isModified) {
+        // Detect if the backend cleared a limit that previously existed (alert triggered)
+        const upperBreached = (existingSub.originalUpper !== '' && displayUpper === '');
+        const lowerBreached = (existingSub.originalLower !== '' && displayLower === '');
+
+        return {
+          ...newSub,
+          editUpper: upperBreached ? '' : existingSub.editUpper,       
+          editLower: lowerBreached ? '' : existingSub.editLower,       
+          alertsActive: existingSub.alertsActive, 
+          originalUpper: displayUpper,            
+          originalLower: displayLower,
+          originalActive: isActive,
+          isModified: true
+        }
+      }
       
       return {
-        ...sub,
+        ...newSub,
         editUpper: displayUpper,
         editLower: displayLower,
         alertsActive: isActive,
         originalUpper: displayUpper,
         originalLower: displayLower,
-        originalActive: isActive
+        originalActive: isActive,
+        isModified: false
       }
     })
 
-    // NEU: Liste streng alphabetisch nach dem Symbol (A-Z) sortieren
     entries.sort((a, b) => a.symbol.localeCompare(b.symbol))
-
     userSubscriptions.value = entries
-  } catch (err) { 
-  console.error(err)
-  showMessage("Portfolio konnte nicht geladen werden", "error")
-  }
-}
-
-const hasUnsavedChanges = (sub) => {
-  return String(sub.editUpper || '') !== String(sub.originalUpper || '') ||
-         String(sub.editLower || '') !== String(sub.originalLower || '') ||
-         sub.alertsActive !== sub.originalActive;
+  } catch (err) { console.error(err) }
 }
 
 const updateThresholds = async (sub) => {
-  if (!hasUnsavedChanges(sub)) return;
+  if (!sub.isModified) return;
 
   const finalUpper = (sub.alertsActive && sub.editUpper) ? toUsdValue(sub.editUpper) : null;
   const finalLower = (sub.alertsActive && sub.editLower) ? toUsdValue(sub.editLower) : null;
@@ -255,7 +261,12 @@ const updateThresholds = async (sub) => {
     }
 
     showMessage(`Limits & Status für ${sub.symbol} gespeichert`, 'success')
-    await loadSubscriptions()
+    
+    sub.originalUpper = sub.editUpper;
+    sub.originalLower = sub.editLower;
+    sub.originalActive = sub.alertsActive;
+    sub.isModified = false; 
+    
   } catch (err) { 
     showMessage(err.message, "error") 
   }
@@ -273,7 +284,8 @@ const executeDelete = async () => {
     await fetch(`${API_BASE}/subscriptions/${globalUserId.value}/${symbol}`, { method: 'DELETE' })
     showMessage(`${symbol} deabonniert`, 'success')
     stockToDelete.value = null;
-    await loadSubscriptions()
+    
+    userSubscriptions.value = userSubscriptions.value.filter(s => s.symbol !== symbol);
   } catch (err) { 
     showMessage(err.message, "error") 
     stockToDelete.value = null;
@@ -403,7 +415,7 @@ const getPercentChange = (entry, current) => {
                          type="number" 
                          step="0.01" 
                          v-model="sub.editUpper" 
-                         @input="sub.alertsActive = true"
+                         @input="sub.alertsActive = true; sub.isModified = true"
                          placeholder="Kein Limit" 
                          class="invisible-input" 
                        />
@@ -416,7 +428,7 @@ const getPercentChange = (entry, current) => {
                          type="number" 
                          step="0.01" 
                          v-model="sub.editLower" 
-                         @input="sub.alertsActive = true"
+                         @input="sub.alertsActive = true; sub.isModified = true"
                          placeholder="Kein Limit" 
                          class="invisible-input" 
                        />
@@ -430,6 +442,7 @@ const getPercentChange = (entry, current) => {
                         type="checkbox" 
                         v-model="sub.alertsActive" 
                         :disabled="!sub.editUpper && !sub.editLower"
+                        @change="sub.isModified = true"
                       >
                       <span class="checkmark"></span>
                     </label>
@@ -439,8 +452,8 @@ const getPercentChange = (entry, current) => {
                     <div class="action-buttons">
                       <button 
                         class="action-btn save-btn" 
-                        :class="{ 'is-dirty': hasUnsavedChanges(sub) }"
-                        :disabled="!hasUnsavedChanges(sub)"
+                        :class="{ 'is-dirty': sub.isModified }"
+                        :disabled="!sub.isModified"
                         @click="updateThresholds(sub)" 
                         title="Änderungen speichern"
                       >
