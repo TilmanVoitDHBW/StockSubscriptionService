@@ -1,0 +1,55 @@
+---
+openapi: 3.0.3
+info:
+  title: stock-service API
+  version: 1.0.0-SNAPSHOT
+paths:
+  /stock/quote:
+    get:
+      tags:
+      - Stock Resource
+      parameters:
+      - name: symbol
+        in: query
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockQuote"
+  /stock/resolve:
+    get:
+      tags:
+      - Stock Resource
+      parameters:
+      - name: query
+        in: query
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockResolve"
+components:
+  schemas:
+    StockQuote:
+      type: object
+      properties:
+        symbol:
+          type: string
+        priceUsd:
+          format: double
+          type: number
+    StockResolve:
+      type: object
+      properties:
+        query:
+          type: string
+        resolvedSymbol:
+          type: string

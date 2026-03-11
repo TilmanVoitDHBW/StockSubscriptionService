@@ -1,0 +1,126 @@
+---
+openapi: 3.0.3
+info:
+  title: alert-service API
+  version: 1.0.0-SNAPSHOT
+paths:
+  /alerts:
+    get:
+      tags:
+      - Alert Resource
+      parameters:
+      - name: clear
+        in: query
+        schema:
+          default: false
+          type: boolean
+      - name: userId
+        in: query
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+  /alerts/evaluate:
+    post:
+      tags:
+      - Alert Resource
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /alerts/state/{userId}/{symbol}:
+    delete:
+      tags:
+      - Alert Resource
+      parameters:
+      - name: symbol
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+  /alerts/{userId}/single:
+    delete:
+      tags:
+      - Alert Resource
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: createdAt
+        in: query
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+components:
+  schemas:
+    Alert:
+      type: object
+      properties:
+        id:
+          format: int64
+          type: integer
+        userId:
+          type: string
+        symbol:
+          type: string
+        previousPriceUsd:
+          format: double
+          type: number
+        currentPriceUsd:
+          format: double
+          type: number
+        percentChange:
+          format: double
+          type: number
+        message:
+          type: string
+        createdAt:
+          $ref: "#/components/schemas/Instant"
+    AlertRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        symbol:
+          type: string
+        currentPriceUsd:
+          format: double
+          type: number
+        upperThresholdUsd:
+          format: double
+          type: number
+        lowerThresholdUsd:
+          format: double
+          type: number
+    Instant:
+      format: date-time
+      type: string
+      example: 2022-03-10T16:15:50Z

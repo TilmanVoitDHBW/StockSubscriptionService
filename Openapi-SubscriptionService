@@ -1,0 +1,192 @@
+---
+openapi: 3.0.3
+info:
+  title: subscription-service API
+  version: 1.0.0-SNAPSHOT
+paths:
+  /subscriptions:
+    get:
+      tags:
+      - Subscription Resource
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/SubscriptionEntry"
+    post:
+      tags:
+      - Subscription Resource
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Subscription"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+  /subscriptions/{userId}:
+    get:
+      tags:
+      - Subscription Resource
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscriptions"
+  /subscriptions/{userId}/{symbol}:
+    put:
+      tags:
+      - Subscription Resource
+      parameters:
+      - name: symbol
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ThresholdUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+    delete:
+      tags:
+      - Subscription Resource
+      parameters:
+      - name: symbol
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+  /subscriptions/{userId}/{symbol}/reset:
+    put:
+      tags:
+      - Subscription Resource
+      parameters:
+      - name: symbol
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ThresholdReset"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+components:
+  schemas:
+    Subscription:
+      type: object
+      properties:
+        id:
+          format: int64
+          type: integer
+        userId:
+          type: string
+        symbol:
+          type: string
+        upperThresholdUsd:
+          format: double
+          type: number
+        lowerThresholdUsd:
+          format: double
+          type: number
+        entryPriceUsd:
+          format: double
+          type: number
+    SubscriptionEntry:
+      type: object
+      properties:
+        symbol:
+          type: string
+        upperThresholdUsd:
+          format: double
+          type: number
+        lowerThresholdUsd:
+          format: double
+          type: number
+        entryPriceUsd:
+          format: double
+          type: number
+    Subscriptions:
+      type: object
+      properties:
+        userId:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubscriptionEntry"
+    ThresholdReset:
+      type: object
+      properties:
+        upperThresholdUsd:
+          format: double
+          type: number
+        lowerThresholdUsd:
+          format: double
+          type: number
+    ThresholdUpdate:
+      type: object
+      properties:
+        upperThresholdUsd:
+          format: double
+          type: number
+        lowerThresholdUsd:
+          format: double
+          type: number
+        currentPriceUsd:
+          format: double
+          type: number
