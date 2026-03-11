@@ -22,6 +22,9 @@ public class MonitoringJob {
     @RestClient
     AlertClient alert;
 
+    @jakarta.inject.Inject
+    PriceCache priceCache;
+
     @Scheduled(cron = "{monitor.cron}")
     void monitor() {
         System.out.println("[MONITOR] Starting scheduled market evaluation...");
@@ -52,6 +55,7 @@ public class MonitoringJob {
         StockQuote quote;
         try {
             quote = stock.quote(entry.symbol());
+            priceCache.put(entry.symbol(), quote.priceUsd());
             System.out.println("[MONITOR] Fetched quote for " + entry.symbol() + ": $" + quote.priceUsd());
         } catch (Exception ex) {
             System.err.println("[MONITOR] Failed to fetch quote for " + entry.symbol() + ": " + ex.getMessage());
@@ -96,12 +100,11 @@ public class MonitoringJob {
         }
 
         if (breached) {
-            Map<String, Object> updatePayload = new HashMap<>();
-            updatePayload.put("upperThresholdUsd", currentUpper);
-            updatePayload.put("lowerThresholdUsd", currentLower);
-            updatePayload.put("currentPriceUsd", currentPrice);
-            
-            subscription.updateThresholds(userId, entry.symbol(), updatePayload);
+            Map<String, Object> resetPayload = new HashMap<>();
+            resetPayload.put("upperThresholdUsd", currentUpper);
+            resetPayload.put("lowerThresholdUsd", currentLower);
+
+            subscription.resetThresholds(userId, entry.symbol(), resetPayload);
         }
     }
 }

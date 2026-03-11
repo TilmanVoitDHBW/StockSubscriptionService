@@ -45,6 +45,19 @@ public class SubscriptionResource {
         return Map.of("status", "updated");
     }
 
+    // Internal endpoint for the monitoring job — resets thresholds without price validation
+    public static class ThresholdReset {
+        public Double upperThresholdUsd;
+        public Double lowerThresholdUsd;
+    }
+
+    @PUT
+    @Path("/{userId}/{symbol}/reset")
+    public Map<String, Object> resetThresholds(@PathParam("userId") String userId, @PathParam("symbol") String symbol, ThresholdReset req) {
+        repo.resetThresholds(userId, symbol, req.upperThresholdUsd, req.lowerThresholdUsd);
+        return Map.of("status", "reset");
+    }
+
     @GET
     @Path("/{userId}")
     public Subscriptions list(@PathParam("userId") String userId) {

@@ -48,12 +48,22 @@ public class SubscriptionRepository {
                 throw new IllegalArgumentException("Das obere Limit muss über dem aktuellen Kurs liegen.");
             }
             if (lower != null && lower >= currentPrice) {
-                throw new IllegalArgumentException("Das untere Limit muss unter dem aktuellen Kurs iegen.");
+                throw new IllegalArgumentException("Das untere Limit muss unter dem aktuellen Kurs liegen.");
             }
         } else if (upper != null || lower != null) {
             throw new IllegalArgumentException("Fehler: Das Backend benötigt den aktuellen Kurs, um die Limits zu validieren.");
         }
 
+        existing.upperThresholdUsd = upper;
+        existing.lowerThresholdUsd = lower;
+    }
+
+    // Internal reset called by the monitoring job — skips price validation
+    @Transactional
+    public void resetThresholds(String userId, String symbol, Double upper, Double lower) {
+        String sym = symbol.toUpperCase(Locale.ROOT);
+        Subscription existing = Subscription.find("userId = ?1 and symbol = ?2", userId, sym).firstResult();
+        if (existing == null) return;
         existing.upperThresholdUsd = upper;
         existing.lowerThresholdUsd = lower;
     }

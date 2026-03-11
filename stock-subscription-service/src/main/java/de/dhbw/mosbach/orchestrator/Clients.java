@@ -21,6 +21,11 @@ public class Clients {
         @Path("/{userId}/{symbol}")
         Map<String, Object> updateThresholds(@PathParam("userId") String userId, @PathParam("symbol") String symbol, Map<String, Object> req);
 
+        // Internal reset: bypasses price validation
+        @PUT
+        @Path("/{userId}/{symbol}/reset")
+        Map<String, Object> resetThresholds(@PathParam("userId") String userId, @PathParam("symbol") String symbol, Map<String, Object> req);
+
         @GET
         @Path("/{userId}")
         Subscriptions list(@PathParam("userId") String userId);
