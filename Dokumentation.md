@@ -29,6 +29,7 @@
 - [Prozess: Automatische Kursüberwachung](#prozess-automatische-kursüberwachung)
 - [Prozess: Wärungsumrechnung](#prozess-wärungsumrechnung)
 - [Prozess: Abonnement kündigen](#prozess-abonnement-kündigen)
+- [Openapi-Dateien:](#openapi-dateien)
 
 <br>
 
@@ -112,9 +113,13 @@ Die Web-Applikation basiert auf mehreren Web-Services, die jeweils spezielle Auf
 
 ![image desc](Gesamtprozess.png)
 
-Der dargestellte Gesamtprozess beschreibt die Orchestrierung des StockSubscriptionService als zentralen Composite Service. Der Ablauf kann entweder durch eine Benutzeranfrage oder durch ein zeitgesteuertes Ereignis gestartet werden. Im Fall einer Benutzerinteraktion beginnt der Prozess mit einem Request vom Nutzer. Über ein exklusives Gateway wird entschieden, welche Art von Anfrage vorliegt. Möchte der Nutzer eine Aktie abonnieren, wird die entsprechende Call Activity „Aktie abonnieren“ aufgerufen. Nach erfolgreicher Durchführung erhält der Nutzer eine Bestätigung. Handelt es sich hingegen um eine Kursabfrage, wird die Call Activity „Aktienkursabfrage“ gestartet, woraufhin der aktuelle Kurs berechnet und angezeigt wird.
+Das Diagramm zum Gesamtprozess zeigt die übergeordnete Struktur des StockSubscriptionService und dient als Einstieg in die verschiedenen Teilprozesse der Anwendung. Der Prozess kann durch zwei unterschiedliche Ereignisse gestartet werden. Zum einen kann ein Nutzer über die Benutzeroberfläche eine Anfrage an den Service stellen, zum anderen kann der Prozess durch ein zeitgesteuertes Ereignis ausgelöst werden, welches die automatische Kursüberwachung startet.
 
-Unabhängig davon existiert ein zweiter Startpunkt in Form eines Timer-Events. Dieses löst regelmäßig die Call Activity „Automatische Kursüberwachung“ aus. Dabei werden abonnierte Aktien überprüft und gegebenenfalls Benachrichtigungen erzeugt. Durch die Verwendung von Call Activities wird der Gesamtprozess übersichtlich gehalten, während die detaillierte Logik in separaten Teilprozessen gekapselt ist. Somit fungiert der StockSubscriptionService als Orchestrator, der unterschiedliche Abläufe koordiniert und externe sowie interne Services strukturiert einbindet.
+Wenn eine Anfrage von einem Nutzer eingeht, wird zunächst über ein Gateway entschieden, um welche Art von Anfrage es sich handelt. Der Nutzer kann entweder eine Aktie abonnieren oder den aktuellen Kurs einer Aktie abfragen. Abhängig von dieser Entscheidung wird eine entsprechende Call Activity aufgerufen, welche den jeweiligen Teilprozess startet. Beim Abonnieren einer Aktie wird der Prozess „Aktie abonnieren“ ausgeführt, während bei einer Kursabfrage der Prozess „Aktienkurs abrufen“ gestartet wird.
+
+Zusätzlich existiert ein zeitgesteuerter Startpunkt für die automatische Kursüberwachung. Dieser wird regelmäßig durch einen Timer ausgelöst und startet den Prozess zur automatischen Überprüfung der Kurse aller abonnierten Aktien. Falls eine relevante Kursänderung festgestellt wird, kann anschließend eine Benachrichtigung erzeugt werden.
+
+Das Diagramm zeigt somit die Rolle des StockSubscriptionService als Composite Service, der mehrere spezialisierte Teilprozesse orchestriert und diese abhängig von Benutzeranfragen oder zeitgesteuerten Ereignissen aufruft.
 
 <div style="page-break-after: always;"></div>
 
@@ -126,7 +131,11 @@ Unabhängig davon existiert ein zweiter Startpunkt in Form eines Timer-Events. D
 
 <br>
 
-Dieser Prozess beschreibt die Abfrage aktueller Aktienkurse durch den Benutzer. Der Benutzer gibt die gewünschte Aktie ein, woraufhin der StockSubscriptionService zunächst die Eingabe validiert. Ungültige Eingaben führen zu einer Fehlermeldung und einem Abbruch des Vorgangs. Nach erfolgreicher Validierung wird der StockService aufgerufen, um den aktuellen Kurs in US-Dollar abzurufen. Es wird im Anschluss der CurrencyService aufgerufen, der den Kurs in die gewünschte Währung umrechnet. Abschließend zeigt der StockSubscriptionService den umgerechneten Kurs dem Benutzer an. Der Prozess enthält somit sowohl die Interaktion mit externen Services als auch die Verarbeitung und Aggregation der Daten für die Anzeige. Durch die explizite Validierung der Eingaben und die Fehlerbehandlung ist gewährleistet, dass der Benutzer nur korrekte Informationen erhält.
+Der Prozess „Aktienkurs abrufen“ ist ein unterstützender Teilprozess innerhalb des StockSubscriptionService. Er wird nicht direkt durch eine Benutzeranfrage gestartet, sondern von anderen Prozessen aufgerufen, wenn aktuelle Kursinformationen benötigt werden. Dazu gehören beispielsweise der Prozess zur automatischen Kursüberwachung oder andere Funktionen, die den aktuellen Wert einer Aktie benötigen.
+
+Der Prozess beginnt mit der Übergabe eines Aktiensymbols durch den aufrufenden Prozess. Dieses Symbol identifiziert eindeutig die Aktie, deren aktueller Kurs abgefragt werden soll. Anschließend wird der externe StockService aufgerufen, der aktuelle Marktdaten zu der angegebenen Aktie bereitstellt. Der Service liefert dabei den aktuellen Preis der Aktie in einer festgelegten Basiswährung, typischerweise US-Dollar.
+
+Falls es keinen Fehler gab, wird der berechnete Kurswert wird anschließend an den aufrufenden Prozess zurückgegeben. Dieser kann die Daten anschließend weiterverarbeiten, beispielsweise für eine Kursanzeige oder für die Überprüfung von Kursänderungen im Rahmen der automatischen Benachrichtigungslogik. Damit stellt der Prozess eine zentrale Funktion zur Bereitstellung aktueller Kursinformationen innerhalb des Gesamtsystems dar.
 
 HHTP-Nachricht:
 
@@ -146,7 +155,13 @@ Abfrage Aktienkurs:
 
 <br>
 
-Der Prozess „Aktie abonnieren“ beschreibt, wie ein Nutzer eine Aktie für die Beobachtung auswählt und in das System aufnimmt. Der Ablauf beginnt, sobald der Benutzer die gewünschte Aktie eingibt. Zunächst wird die Eingabe auf zulässige Zeichen und Länge überprüft, um sicherzustellen, dass Sonderzeichen oder unvollständige Daten nicht zu fehlerhaften Anfragen führen. Anschließend prüft der Service, ob eine gültige User-ID vorhanden ist. Fehlt diese, wird der Vorgang mit einer entsprechenden Fehlermeldung abgebrochen. Danach ruft der StockSubscriptionService den externen StockService auf, um die Existenz der Aktie zu bestätigen. Falls die Aktie nicht existiert, wird ebenfalls eine Fehlermeldung ausgegeben und der Prozess abgebrochen. Wenn alle Validierungen erfolgreich sind, wird die Abonnement-Information über den Subscription-Service gespeichert. Abschließend erhält der Benutzer eine Bestätigung, dass die Aktie erfolgreich abonniert wurde. Fehlerpfade wie ungültige Eingabe oder nicht vorhandene Aktie sind explizit vorgesehen, sodass der Prozess robust gegenüber fehlerhaften Eingaben bleibt. Die klare Trennung zwischen Benutzerinteraktion, Validierung, externem Service und Speicherung sorgt dafür, dass die Verantwortung jedes Services nachvollziehbar bleibt.
+Der Prozess „Aktie abonnieren“ beschreibt, wie ein Nutzer eine bestimmte Aktie zu seiner persönlichen Beobachtungsliste hinzufügen kann. Der Prozess beginnt mit einer Anfrage des Nutzers, in der dieser den Namen oder das Symbol der gewünschten Aktie angibt.
+
+Zunächst wird die Anfrage vom StockSubscriptionService entgegengenommen und validiert. Dabei wird geprüft, ob die eingegebene Aktie existiert und ob die Anfrage korrekt aufgebaut ist. Um diese Information zu erhalten, wird der externe StockService aufgerufen, der aktuelle Informationen zur angegebenen Aktie liefert. Dieser Schritt stellt sicher, dass nur gültige Aktien in das System aufgenommen werden.
+
+Anschließend wird über ein Gateway überprüft, ob der Nutzer die Aktie bereits abonniert hat. Falls die Aktie bereits vorhanden ist, wird keine neue Speicherung vorgenommen und der Prozess kann direkt beendet werden. Falls die Aktie noch nicht abonniert wurde, wird ein Eintrag im SubscriptionService erzeugt. Dieser speichert die Verbindung zwischen Nutzer und Aktie, sodass diese später für Kursabfragen oder automatische Überwachung verwendet werden kann.
+
+Nach erfolgreicher Speicherung wird eine Bestätigung erzeugt und an den Nutzer zurückgegeben. Damit ist der Abonnementprozess abgeschlossen. Der Nutzer kann nun zukünftig Kursinformationen zu dieser Aktie abrufen oder automatisch über relevante Kursänderungen informiert werden.
 
 HTTP-Nachrichten:
 
@@ -169,7 +184,13 @@ Abonnement in SubscriptionService speichern:
 ![image desc](Automatische%20Kursüberwachung.png)
 
 <br>
-Der Prozess der automatischen Kursüberwachung dient dazu, bei größeren Veränderungen der Aktienkurse Benachrichtigungen an die Nutzer zu generieren. Der StockSubscriptionService wird durch ein Timer-Event getriggert. Zunächst prüft der Service, ob die User-ID vorhanden ist; falls nicht, wird der Vorgang abgebrochen. Danach ermittelt der Subscription-Service die abonnierten Aktien des jeweiligen Nutzers. Für jede Aktie wird der aktuelle Kurs über den StockService abgefragt. Anschließend prüft der Alert-Service, ob der Kurs eine festgelegte Schwelle überschreitet oder eine starke Veränderung im Vergleich zum letzten Datenpunkt stattgefunden hat. Falls eine Benachrichtigung notwendig ist, wird diese generiert und dem Benutzer bereitgestellt. Der Prozess endet, wenn alle Aktien geprüft wurden und ggf. Alerts versendet wurden. Durch diesen Ablauf werden wiederkehrende Prüfungen automatisiert und Nutzer rechtzeitig über wichtige Kursbewegungen informiert, während die Trennung der Services die Wartbarkeit des Systems erhöht.
+Der Prozess der automatischen Kursüberwachung dient dazu, Kursänderungen bei abonnierten Aktien regelmäßig zu überprüfen und Nutzer gegebenenfalls zu benachrichtigen. Der Prozess wird nicht direkt von einem Nutzer gestartet, sondern durch ein Timer-Event, das in regelmäßigen Abständen ausgelöst wird.
+
+Nach dem Start lädt der Prozess zunächst alle vorhandenen Abonnements aus dem SubscriptionService. Diese enthalten Informationen darüber, welche Nutzer welche Aktien beobachten. Anschließend wird iterativ über diese Abonnements gearbeitet.
+
+Für jede abonnierte Aktie wird der aktuelle Kurs über den StockService abgefragt. Dieser Kurs wird anschließend mit dem zuletzt bekannten Kurswert verglichen. Falls eine signifikante Kursänderung festgestellt wird, wird der AlertService aufgerufen. Dieser erzeugt eine entsprechende Benachrichtigung für den betroffenen Nutzer und setzt das Limit, durch das der Alert ausgelöst wurde, zurück.
+
+Wenn keine relevante Änderung vorliegt, wird keine Aktion ausgeführt und der Prozess fährt mit der nächsten Aktie fort. Nachdem alle Abonnements überprüft wurden, endet der Prozess. Durch diesen Mechanismus können Nutzer automatisch über wichtige Kursbewegungen informiert werden, ohne selbst aktiv eine Anfrage stellen zu müssen.
 
 HTTP-Nachrichten:
 
@@ -193,11 +214,23 @@ Ober-/Untergrenze ändern:
 
 ## Prozess: Wärungsumrechnung
 
+---
+
 <br>
 
 ![image desc](Währungsumrechnung.png)
 
 <br>
+
+Der Prozess „Währungsumrechnung“ wird aufgerufen, wenn ein Aktienkurs nicht in der gewünschten Zielwährung vorliegt. Der Ablauf beginnt mit der Übergabe eines Betrags und der zugehörigen Ausgangswährung.
+
+Zunächst wird der aktuelle Wechselkurs über einen externen CurrencyService abgefragt. Dieser liefert den Faktor, der benötigt wird, um den Betrag von der Ausgangswährung in die gewünschte Zielwährung zu konvertieren. Nachdem der Wechselkurs erhalten wurde, wird der Betrag entsprechend umgerechnet.
+
+Der umgerechnete Wert wird anschließend an den aufrufenden Prozess zurückgegeben, beispielsweise an den Prozess zur Kursabfrage. Dadurch können Kursinformationen flexibel in verschiedenen Währungen dargestellt werden.
+
+Durch die Nutzung eines externen Services bleibt der Prozess unabhängig von lokalen Wechselkursdaten und kann jederzeit aktuelle Umrechnungswerte verwenden.
+
+<div style="page-break-after: always;"></div>
 
 HTTP-Nachricht: 
 
@@ -205,11 +238,23 @@ Währungsumrechnung:
 
 ![imagedesc](HTTP-Währungsumrechnung.png)
 
-<div style="page-break-after: always;"></div>
+
 
 ## Prozess: Abonnement kündigen
 
+---
+
 ![image desc](Abonnement%20kündigen.png)
+
+Der Prozess „Abonnement kündigen“ beschreibt, wie ein Nutzer eine zuvor abonnierte Aktie wieder aus seiner Beobachtungsliste entfernen kann. Der Ablauf beginnt mit einer Anfrage des Nutzers, in der die zu entfernende Aktie angegeben wird.
+
+Nach Eingang der Anfrage wird zunächst überprüft, ob für den Nutzer tatsächlich ein entsprechendes Abonnement existiert. Dazu wird der SubscriptionService aufgerufen, der die gespeicherten Abonnements verwaltet. Falls kein passender Eintrag gefunden wird, kann der Prozess direkt beendet werden, da keine Änderung erforderlich ist.
+
+Falls das Abonnement existiert, wird der entsprechende Eintrag aus der Datenstruktur entfernt. Anschließend wird der aktualisierte Zustand im System gespeichert. Durch diesen Schritt wird sichergestellt, dass die betreffende Aktie künftig nicht mehr im Rahmen der automatischen Kursüberwachung berücksichtigt wird.
+
+Nach erfolgreicher Entfernung wird eine Bestätigung erzeugt und an den Nutzer zurückgegeben. Damit ist der Kündigungsprozess abgeschlossen.
+
+<div style="page-break-after: always;"></div>
 
 HTTP-Nachrichten:
 
@@ -221,9 +266,7 @@ State für Aktie in AlertService löschen:
 
 ![imagedesc](HTTP-AlertZustandLöschen.png)
 
-<div style="page-break-after: always;"></div>
-
-Openapi-Dateien:
+## Openapi-Dateien:
 
 Die Openapi-Dateien sind außerhalb der Dokumentation in den folgenden Dateien zu finden:
 
